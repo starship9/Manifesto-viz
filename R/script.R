@@ -9,19 +9,19 @@ bjp <- bjpRaw %>%
   tbl_df() %>%
   unnest_tokens(word, value) %>%
   mutate(party = "bjp",
-         section = row_number()%/%10)
+         section = row_number() %/% 10)
 
 congress <- congressRaw %>%
   tbl_df() %>%
   unnest_tokens(word, value) %>%
   mutate(party = "congress",
-         section = row_number()%/%10)
+         section = row_number() %/% 10)
 
 
 df <- rbind(bjp, congress)
 
 dfProcessed <- df %>%
-  filter(is.na(as.numeric(word)), !str_detect(word, "ÿ")) %>%
+  filter(is.na(as.numeric(word)),!str_detect(word, "ÿ")) %>%
   anti_join(stop_words)
 
 theme_set(theme_light())
@@ -36,7 +36,7 @@ dfProcessed %>%
   geom_col(aes(fill = party)) +
   geom_label(aes(label = n), alpha = 0.2, size = 3) +
   coord_flip() +
-  facet_wrap(~ party, scales = "free_y") +
+  facet_wrap( ~ party, scales = "free_y") +
   labs(
     title = "Most common words per party",
     y = "Count",
@@ -49,10 +49,10 @@ dfProcessed %>%
   count(word, party) %>%
   bind_tf_idf(word, party, n) %>%
   split(.$party) %>%
-  map(~ tbl_df(data = .)) %>%
-  map(~ mutate(.data = ., word = fct_reorder(word, tf_idf))) %>%
-  map(~ arrange(.data = ., desc(tf_idf))) %>%
-  map(~ head(20, x = .)) %>%
+  map( ~ tbl_df(data = .)) %>%
+  map( ~ mutate(.data = ., word = fct_reorder(word, tf_idf))) %>%
+  map( ~ arrange(.data = ., desc(tf_idf))) %>%
+  map( ~ head(20, x = .)) %>%
   map(
     ~ ggplot(data = ., aes(word, tf_idf)) +
       geom_col(aes(fill = tf_idf), color = "black") +
@@ -84,7 +84,7 @@ congressBG <- congressRaw %>%
 dfBG <- rbind(bjpBG, congressBG)
 
 dfBGProcessed <- dfBG %>%
-  filter(!str_detect(word, "ÿ")) %>% 
+  filter(!str_detect(word, "ÿ")) %>%
   separate(word, into = c("word1", "word2"), sep = " ") %>%
   filter(
     !word1 %in% stop_words$word &
@@ -95,45 +95,109 @@ dfBGProcessed <- dfBG %>%
 
 set.seed(100)
 
-dfBGProcessed %>% 
-  split(.$party) %>% 
-  map(~filter(n > 5, .data = .)) %>% 
-  map(~graph_from_data_frame(d = .)) %>% 
-  map(~ggraph(graph = .) +
-  geom_edge_link(aes(edge_alpha = n)) +
-  geom_node_point(alpha = 0.8, size = 3) +
-  geom_node_text(aes(label = name), repel = TRUE) +
-  guides(alpha = FALSE, edge_alpha = FALSE) +
-  labs(title = paste("Words more specific in", .$party, "'s manifesto")) +
-  theme_void()
+dfBGProcessed %>%
+  split(.$party) %>%
+  map( ~ filter(n > 5, .data = .)) %>%
+  map( ~ graph_from_data_frame(d = .)) %>%
+  map(
+    ~ ggraph(graph = .) +
+      geom_edge_link(aes(edge_alpha = n)) +
+      geom_node_point(alpha = 0.8, size = 3) +
+      geom_node_text(aes(label = name), repel = TRUE) +
+      guides(alpha = FALSE, edge_alpha = FALSE) +
+      labs(title = paste(
+        "Words more specific in", .$party, "'s manifesto"
+      )) +
+      theme_void()
   )
 
 
-dfProcessed %>% 
-  filter(party=="bjp") %>% 
-  group_by(word) %>% 
-  filter(n()>20) %>% 
-  pairwise_cor(word, section, sort = TRUE, upper = FALSE) %>% 
+dfProcessed %>%
+  filter(party == "bjp") %>%
+  group_by(word) %>%
+  filter(n() > 20) %>%
+  pairwise_cor(word, section, sort = TRUE, upper = FALSE) %>%
   filter(!is.na(correlation),
-         correlation>0.04) %>% 
-  graph_from_data_frame() %>% 
+         correlation > 0.04) %>%
+  graph_from_data_frame() %>%
   ggraph() +
-  geom_edge_link(aes(edge_alpha = correlation)) +
+  geom_edge_link(aes(edge_colour = correlation)) +
+  geom_node_point(size = 3, alpha = 0.8) +
+  geom_node_text(aes(label = name), repel = TRUE) +
+  scale_edge_color_distiller(palette = "RdPu", direction = 1) +
+  theme_void()
+
+
+dfProcessed %>%
+  filter(party == "congress") %>%
+  group_by(word) %>%
+  filter(n() > 20) %>%
+  pairwise_cor(word, section, sort = TRUE, upper = FALSE) %>%
+  filter(!is.na(correlation),
+         correlation > 0.04) %>%
+  graph_from_data_frame() %>%
+  ggraph() +
+  geom_edge_link(aes(edge_colour = correlation)) +
+  scale_edge_color_distiller(palette = "RdPu", direction = 1) +
   geom_node_point(size = 3, alpha = 0.8) +
   geom_node_text(aes(label = name), repel = TRUE) +
   theme_void()
 
-dfProcessed %>% 
-  filter(party=="congress") %>% 
-  group_by(word) %>% 
-  filter(n()>20) %>% 
-  pairwise_cor(word, section, sort = TRUE, upper = FALSE) %>% 
-  filter(!is.na(correlation),
-         correlation>0.04) %>% 
-  graph_from_data_frame() %>% 
-  ggraph() +
-  geom_edge_link(aes(edge_colour = correlation)) +
-  scale_edge_color_distiller(palette = "PuBuGn", direction = 1) +
-  geom_node_point(size = 3, alpha = 0.8) +
-  geom_node_text(aes(label = name), repel = TRUE) +
-  theme_void()
+library(stm)
+
+dfSparseCongress <- dfProcessed %>%
+  filter(party == "congress") %>%
+  count(section, word, sort = TRUE) %>%
+  cast_sparse(section, word, n)
+
+topicModelCongress <-
+  stm(dfSparseCongress,
+      K = 6,
+      verbose = FALSE,
+      init.type = "LDA")
+
+
+tdBetaCongress <- tidy(topicModelCongress)
+
+tdBetaCongress %>%
+  group_by(topic) %>%
+  arrange(desc(beta)) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  mutate(topic = paste("Topic", topic),
+         term = fct_reorder(term, beta)) %>%
+  ggplot(aes(term, beta)) +
+  geom_col(alpha = 0.8, aes(fill = topic)) +
+  facet_wrap( ~ topic, scales = "free") +
+  coord_flip() +
+  labs(title = "Possible topics for Congress",
+       subtitle = "Topic modelling via LDA used")
+
+
+dfSparseBJP <- dfProcessed %>%
+  filter(party == "bjp") %>%
+  count(section, word, sort = TRUE) %>%
+  cast_sparse(section, word, n)
+
+topicModelBJP <-
+  stm(dfSparseBJP,
+      K = 6,
+      verbose = FALSE,
+      init.type = "LDA")
+
+
+tdBetaBJP <- tidy(topicModelBJP)
+
+tdBetaBJP %>%
+  group_by(topic) %>%
+  arrange(desc(beta)) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  mutate(topic = paste("Topic", topic),
+         term = fct_reorder(term, beta)) %>%
+  ggplot(aes(term, beta)) +
+  geom_col(alpha = 0.8, aes(fill = topic)) +
+  facet_wrap( ~ topic, scales = "free") +
+  coord_flip() +
+  labs(title = "Possible topics for BJP",
+       subtitle = "Topic modelling via LDA used")
