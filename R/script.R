@@ -22,7 +22,8 @@ df <- rbind(bjp, congress)
 
 dfProcessed <- df %>%
   filter(is.na(as.numeric(word)),!str_detect(word, "ÿ")) %>%
-  anti_join(stop_words)
+  anti_join(stop_words) %>% 
+  filter(!str_detect(word, "[0-9]"))
 
 theme_set(theme_light())
 
@@ -201,3 +202,41 @@ tdBetaBJP %>%
   coord_flip() +
   labs(title = "Possible topics for BJP",
        subtitle = "Topic modelling via LDA used")
+
+dfProcessed %>% 
+  group_by(party, word) %>% 
+  summarize(total = n()) %>% 
+  mutate(pct = total/sum(total)) %>% 
+  arrange(desc(pct)) %>% 
+  spread(party, pct) %>% 
+  filter(!is.na(bjp) & !is.na(congress)) %>% 
+  ggplot(aes(bjp, congress)) +
+  geom_jitter(alpha = 0.2) +
+  geom_abline(alpha = 0.8, color = 'red', linetype = 'dashed') +
+  expand_limits(y = 0.0020)
+
+freqPercent <- dfProcessed %>% 
+  group_by(party) %>% 
+  count(word, sort = TRUE) %>% 
+  left_join(dfProcessed %>% 
+              group_by(party) %>% 
+              summarise(total = n())) %>% 
+  mutate(freq = n/total)
+
+library(ggrepel)
+library(ggforce)
+
+freqPercent %>% 
+  select(party, word, freq) %>% 
+  spread(party, freq) %>% 
+  arrange(bjp, congress) %>% 
+  filter(bjp>0.00019 | congress>0.00019) %>% 
+  ggplot(aes(bjp, congress)) +
+  geom_jitter(alpha = 0.1, size = 2.5, width = 0.25, height = 0.25) +
+  geom_text(aes(label = word), check_overlap = TRUE, vjust = 1.5) +
+  scale_x_log10(labels = percent_format()) +
+  scale_y_log10(labels = percent_format()) +
+  geom_abline(color = "red", alpha = 0.5, linetype = "dashed") +
+  labs(title = "Word frequences in the manifestos by BJP and Congress",
+       subtitle = "Words above and below the red line are more frequently\n present in Congress and BJP respectively",
+       caption = "Sources: https://www.bjp.org/en/manifesto2019\nhttps://manifesto.inc.in/pdf/english.pdf")
