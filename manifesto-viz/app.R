@@ -24,14 +24,16 @@ ui <- fluidPage(
         choices = c("BJP", "Congress")
       )
     ),
-    mainPanel(h1("Word frequency of both the manifestos"),
-              textOutput(outputId = "selected_var"),
-              plotOutput(outputId = "freqPlot"))
+    mainPanel(
+      h1("Word frequency of both the manifestos"),
+      textOutput(outputId = "selected_var"),
+      plotOutput(outputId = "freqPlot"),
+      plotOutput(outputId = "facetPlot"),
+      plotOutput(outputId = "tfidfPlot")
+    )
     
   )
-  
-  
-  
+
 )
 
 # Define server logic required to draw a histogram
@@ -43,6 +45,15 @@ server <- function(input, output) {
   output$freqPlot <- renderPlot({
     freqPlot()
   })
+  
+  output$facetPlot <- renderPlot({
+    wordCount()
+  })
+  
+  output$tfidfPlot <- renderPlot({
+    tfidfWords(stringr::str_to_lower(input$selectParty))
+  })
+  
 }
 
 # Run the application
