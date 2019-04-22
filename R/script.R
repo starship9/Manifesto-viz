@@ -153,6 +153,8 @@ corWords <- function(partyInput) {
     geom_node_point(size = 3, alpha = 0.8) +
     geom_node_text(aes(label = name), repel = TRUE) +
     scale_edge_color_distiller(palette = "RdPu", direction = 1) +
+    labs(title = paste("Correlated words in",partyInput,"'s manifesto"),
+         subtitle = "Darker colors are more correlated") +
     theme_void()
 }
 library(stm)
@@ -198,8 +200,10 @@ freqPercent <- dfProcessed %>%
               summarise(total = n())) %>%
   mutate(freq = n / total)
 
+library(plotly)
 freqPlot <- function() {
-  freqPercent %>%
+
+ freqPercent %>%
     select(party, word, freq) %>%
     spread(party, freq) %>%
     arrange(bjp, congress) %>%
@@ -221,4 +225,6 @@ freqPlot <- function() {
     labs(title = "Word frequences in the manifestos by BJP and Congress",
          subtitle = "Words above and below the red line are more frequently\n present in Congress and BJP respectively",
          caption = "Sources: https://www.bjp.org/en/manifesto2019\nhttps://manifesto.inc.in/pdf/english.pdf")
+  
+  
 }

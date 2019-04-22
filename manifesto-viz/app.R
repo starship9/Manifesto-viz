@@ -13,6 +13,7 @@ library(shinydashboard)
 source("../R/script.R")
 
 ui <- dashboardPage(
+  skin = "black",
   dashboardHeader(title = "Manifesto-viz"),
   dashboardSidebar(
     sidebarMenu(
@@ -27,74 +28,85 @@ ui <- dashboardPage(
                 (
                   tabItem
                   (tabName = "wordFreq",
-                    fluidRow(box(
-                      plotOutput("freqPlot", width = 1000, height = 600)
+                    fluidRow(
+                      box(
+                        title = "Word frequencies",
+                        background = "black",
+                        width = 12,
+                        solidHeader = TRUE,
+                        plotOutput("freqPlot", width = 1000, height = 600)
+                      )
+                    ),
+                    fluidRow(
+                      box(
+                        title = "Word count per manifesto",
+                        solidHeader = TRUE,
+                        width = 12,
+                        background = "black",
+                        plotOutput("facetPlot", width = 1000)
+                      )
                     )),
-                    fluidRow(box(
-                      plotOutput("facetPlot", width = 1000)
-                    ))),
                   tabItem(tabName = "tfidf",
-                           fluidRow(box(
-                             selectInput(
-                               inputId = "selectParty",
-                               label = "Party",
-                               choices = c("BJP", "Congress")
-                             ),
-                             plotOutput("tfidfPlot")
-                           ))),
+                          fluidRow(
+                            box(
+                              title = "Words more specific per manifesto",
+                              background = "black",
+                              width = 12,
+                              solidHeader = TRUE,
+                              selectInput(
+                                inputId = "selectParty",
+                                label = "Party",
+                                choices = c("BJP", "Congress")
+                              ),
+                              plotOutput("tfidfPlot", width = 1000)
+                            )
+                          )),
                   tabItem(tabName = "bigrams",
-                          fluidRow(box(
-                            selectInput(
-                              inputId = "selectPartyBG",
-                              label = "Party",
-                              choices = c("BJP", "Congress")
-                            ),
-                            plotOutput("bgPlot")
-                          ))),
+                          fluidRow(
+                            box(
+                              title = "Frequent word pairings",
+                              background = "black",
+                              width = 12,
+                              solidHeader = TRUE,
+                              selectInput(
+                                inputId = "selectPartyBG",
+                                label = "Party",
+                                choices = c("BJP", "Congress")
+                              ),
+                              plotOutput("bgPlot", width = 1000)
+                            )
+                          )),
                   tabItem(tabName = "corWords",
-                          fluidRow(box(
-                            selectInput(
-                              inputId = "selectPartyCor",
-                              label = "Party",
-                              choices = c("BJP", "Congress")
-                            ),
-                            plotOutput("corWords")
-                          ))),
+                          fluidRow(
+                            box(
+                              title = "Correlated words from each manifesto",
+                              solidHeader = TRUE,
+                              background = "black",
+                              width = 12,
+                              selectInput(
+                                inputId = "selectPartyCor",
+                                label = "Party",
+                                choices = c("BJP", "Congress")
+                              ),
+                              plotOutput("corWords", width = 1000)
+                            )
+                          )),
                   tabItem(tabName = "topicWords",
-                          fluidRow(box(
-                            selectInput(
-                              inputId = "selectPartyTopic",
-                              label = "Party",
-                              choices = c("BJP", "Congress")
-                            ),
-                            plotOutput("topicWords")
-                          )))
+                          fluidRow(
+                            box(
+                              solidHeader = TRUE,
+                              background = "black",
+                              width = 12,
+                              title = "Topic modelling of each manifesto",
+                              selectInput(
+                                inputId = "selectPartyTopic",
+                                label = "Party",
+                                choices = c("BJP", "Congress")
+                              ),
+                              plotOutput("topicWords", width = 1000)
+                            )
+                          ))
                 ))
-)
-
-
-uiFluid <- fluidPage(
-  titlePanel("Manifesto visualizations, elections 2019"),
-  
-  sidebarLayout(
-    sidebarPanel(
-      helpText("Choose the manifesto you wish to look at"),
-      selectInput(
-        inputId = "selectParty",
-        label = "Party",
-        choices = c("BJP", "Congress")
-      )
-    ),
-    mainPanel(
-      h1("Word frequency of both the manifestos"),
-      textOutput(outputId = "selected_var"),
-      plotOutput(outputId = "freqPlot"),
-      plotOutput(outputId = "facetPlot"),
-      plotOutput(outputId = "tfidfPlot")
-    )
-    
-  )
-  
 )
 
 server <- function(input, output) {
