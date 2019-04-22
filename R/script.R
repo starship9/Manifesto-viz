@@ -5,12 +5,32 @@ library(tidytext)
 bjpRaw <- pdf_text("../data/bjp.pdf")
 congressRaw <- pdf_text("../data/congress.pdf")
 
+filterWords <-
+  c(
+    "ÿ",
+    "impo",
+    "ance",
+    "oppo",
+    "unities",
+    "di",
+    "erent",
+    "unde",
+    "ake",
+    "ts",
+    "bene",
+    "se",
+    "ing",
+    "electri",
+    "cation",
+    "commi",
+    "ed"
+  )
 bjp <- bjpRaw %>%
   tbl_df() %>%
   unnest_tokens(word, value) %>%
   mutate(party = "bjp",
-         section = row_number() %/% 10) %>% 
-  filter(word!="ÿ")
+         section = row_number() %/% 10) %>%
+  filter(!word %in% filterWords)
 
 congress <- congressRaw %>%
   tbl_df() %>%
@@ -22,37 +42,38 @@ congress <- congressRaw %>%
 df <- rbind(bjp, congress)
 
 dfProcessed <- df %>%
-  filter(is.na(as.numeric(word)), !str_detect(word, "ÿ")) %>%
+  filter(is.na(as.numeric(word)),!str_detect(word, "ÿ")) %>%
   anti_join(stop_words) %>%
-  filter(!str_detect(word, "[0-9]"))
+  filter(!str_detect(word, "[0-9]")) %>%
+  filter(!word %in% filterWords)
 
 theme_set(theme_light())
 
 
-wordCount <- function(){
-dfProcessed %>%
-  count(word, party, sort = TRUE) %>%
-  group_by(party) %>%
-  top_n(20) %>%
-  ungroup() %>%
-  mutate(word = fct_reorder(word, n)) %>%
-  ggplot(aes(word, n)) +
-  geom_col(aes(fill = party)) +
-  geom_label(aes(label = n), alpha = 0.2, size = 3) +
-  coord_flip() +
-  facet_wrap(~ party, scales = "free_y") +
-  labs(
-    title = "Most common words per party",
-    y = "Count",
-    x = "Word",
-    caption = "Sources: https://www.bjp.org/en/manifesto2019\nhttps://manifesto.inc.in/pdf/english.pdf"
-  )
+wordCount <- function() {
+  dfProcessed %>%
+    count(word, party, sort = TRUE) %>%
+    filter(word != "ÿ") %>%
+    group_by(party) %>%
+    top_n(20) %>%
+    ungroup() %>%
+    mutate(word = fct_reorder(word, n)) %>%
+    ggplot(aes(word, n)) +
+    geom_col(aes(fill = party)) +
+    geom_label(aes(label = n), alpha = 0.2, size = 3) +
+    coord_flip() +
+    facet_wrap( ~ party, scales = "free_y") +
+    labs(
+      title = "Most common words per party",
+      y = "Count",
+      x = "Word",
+      caption = "Sources: https://www.bjp.org/en/manifesto2019\nhttps://manifesto.inc.in/pdf/english.pdf"
+    )
 }
 
 library(scales)
 
-tfidfWords <- function(partyInput){
-
+tfidfWords <- function(partyInput) {
   dfProcessed %>%
     filter(party == partyInput) %>%
     count(word, section) %>%
@@ -95,30 +116,32 @@ dfBGProcessed <- dfBG %>%
       !word2 %in% stop_words$word &
       is.na(as.numeric(word1)) & is.na(as.numeric(word2))
   ) %>%
+  filter(!word1 %in% filterWords &
+           !word2 %in% filterWords) %>%
   count(word1, word2, party, sort = TRUE)
 
-set.seed(100)
 
-dfBGProcessed %>%
-  split(.$party) %>%
-  map(~ filter(n > 5, .data = .)) %>%
-  map(~ graph_from_data_frame(d = .)) %>%
-  map(
-    ~ ggraph(graph = .) +
-      geom_edge_link(aes(edge_alpha = n)) +
-      geom_node_point(alpha = 0.8, size = 3) +
-      geom_node_text(aes(label = name), repel = TRUE) +
-      guides(alpha = FALSE, edge_alpha = FALSE) +
-      labs(title = paste(
-        "Words more specific in", .$party, "'s manifesto"
-      )) +
-      theme_void()
-  )
+bgPlotFunc <- function(partyInput) {
+  set.seed(100)
+  
+  dfBGProcessed %>%
+    filter(party == partyInput) %>%
+    filter(n > 5) %>%
+    graph_from_data_frame() %>%
+    ggraph() +
+    geom_edge_link(aes(edge_alpha = n)) +
+    geom_node_point(alpha = 0.8, size = 3) +
+    geom_node_text(aes(label = name), repel = TRUE) +
+    guides(alpha = FALSE, edge_alpha = FALSE) +
+    labs(title = paste("Frequent word pairings in", partyInput, "'s manifesto")) +
+    theme_void()
+}
 
-set.seed(200)
-corWords <- function() {
+corWords <- function(partyInput) {
+  set.seed(100)
   dfProcessed %>%
-    filter(party == "bjp") %>%
+    filter(party == partyInput) %>%
+    filter(!word %in% filterWords) %>%
     group_by(word) %>%
     filter(n() > 20) %>%
     pairwise_cor(word, section, sort = TRUE, upper = FALSE) %>%
@@ -131,73 +154,25 @@ corWords <- function() {
     geom_node_text(aes(label = name), repel = TRUE) +
     scale_edge_color_distiller(palette = "RdPu", direction = 1) +
     theme_void()
-  
-  
-  dfProcessed %>%
-    filter(party == "congress") %>%
-    group_by(word) %>%
-    filter(n() > 20) %>%
-    pairwise_cor(word, section, sort = TRUE, upper = FALSE) %>%
-    filter(!is.na(correlation),
-           correlation > 0.04) %>%
-    graph_from_data_frame() %>%
-    ggraph() +
-    geom_edge_link(aes(edge_colour = correlation)) +
-    scale_edge_color_distiller(palette = "RdPu", direction = 1) +
-    geom_node_point(size = 3, alpha = 0.8) +
-    geom_node_text(aes(label = name), repel = TRUE) +
-    theme_void()
-  
 }
 library(stm)
 
-topicModel <- function() {
-  dfSparseCongress <- dfProcessed %>%
-    filter(party == "congress") %>%
+topicWords <- function(partyInput) {
+  dfSparse <- dfProcessed %>%
+    filter(party == partyInput) %>%
     count(section, word, sort = TRUE) %>%
     cast_sparse(section, word, n)
   
-  topicModelCongress <-
-    stm(
-      dfSparseCongress,
-      K = 6,
-      verbose = FALSE,
-      init.type = "LDA"
-    )
-  
-  
-  tdBetaCongress <- tidy(topicModelCongress)
-  
-  tdBetaCongress %>%
-    group_by(topic) %>%
-    arrange(desc(beta)) %>%
-    top_n(10, beta) %>%
-    ungroup() %>%
-    mutate(topic = paste("Topic", topic),
-           term = fct_reorder(term, beta)) %>%
-    ggplot(aes(term, beta)) +
-    geom_col(alpha = 0.8, aes(fill = topic)) +
-    facet_wrap(~ topic, scales = "free") +
-    coord_flip() +
-    labs(title = "Possible topics for Congress",
-         subtitle = "Topic modelling via LDA used")
-  
-  
-  dfSparseBJP <- dfProcessed %>%
-    filter(party == "bjp") %>%
-    count(section, word, sort = TRUE) %>%
-    cast_sparse(section, word, n)
-  
-  topicModelBJP <-
-    stm(dfSparseBJP,
+  topicModel <-
+    stm(dfSparse,
         K = 6,
         verbose = FALSE,
         init.type = "LDA")
   
   
-  tdBetaBJP <- tidy(topicModelBJP)
+  tdBeta <- tidy(topicModel)
   
-  tdBetaBJP %>%
+  tdBeta %>%
     group_by(topic) %>%
     arrange(desc(beta)) %>%
     top_n(10, beta) %>%
@@ -206,10 +181,13 @@ topicModel <- function() {
            term = fct_reorder(term, beta)) %>%
     ggplot(aes(term, beta)) +
     geom_col(alpha = 0.8, aes(fill = topic)) +
-    facet_wrap(~ topic, scales = "free") +
+    facet_wrap( ~ topic, scales = "free") +
     coord_flip() +
-    labs(title = "Possible topics for BJP",
+    labs(title = paste("Possible topics for ", partyInput),
          subtitle = "Topic modelling via LDA used")
+  
+  
+  
 }
 
 freqPercent <- dfProcessed %>%
