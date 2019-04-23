@@ -59,6 +59,13 @@ ui <- dashboardPage(
       tabItem(tabName = "tfidf",
               fluidRow(
                 box(
+                  numericInput(
+                    inputId = "numInputTFIDF",
+                    label = "Number of words more specific to a party",
+                    value = 10,
+                    min = 1,
+                    max = 30
+                  ),
                   title = "Words more specific per manifesto",
                   #background = "black",
                   width = 12,
@@ -136,8 +143,12 @@ server <- function(input, output) {
     wordInput()
   })
   
+  tfidfInput <- reactive({
+    tfidfWords(stringr::str_to_lower(input$selectParty), input$numInputTFIDF)
+  })
+  
   output$tfidfPlot <- renderPlot({
-    tfidfWords(stringr::str_to_lower(input$selectParty))
+    tfidfInput()
   })
   
   output$bgPlot <- renderPlot({

@@ -7,7 +7,6 @@ congressRaw <- pdf_text("../data/congress.pdf")
 
 filterWords <-
   c(
-    "ÿ",
     "impo",
     "ance",
     "oppo",
@@ -28,7 +27,8 @@ filterWords <-
     "ve",
     "pa",
     "er",
-    "icipation"
+    "icipation",
+    "fu"
   )
 bjp <- bjpRaw %>%
   tbl_df() %>%
@@ -49,7 +49,6 @@ congress <- congressRaw %>%
 df <- rbind(bjp, congress)
 
 dfProcessed <- df %>%
-  filter(is.na(as.numeric(word)),!str_detect(word, "ÿ")) %>%
   anti_join(stop_words) %>%
   filter(!str_detect(word, "[0-9]"),
          str_detect(word,"[a-zA-Z]")) %>%
@@ -82,22 +81,22 @@ wordCount <- function(num) {
 
 library(scales)
 
-tfidfWords <- function(partyInput) {
+tfidfWords <- function(partyInput, num) {
   dfProcessed %>%
     filter(party == partyInput) %>%
     filter(!word %in% filterWords) %>% 
     count(word, section) %>%
     bind_tf_idf(word, section, n) %>%
     arrange(desc(tf_idf)) %>%
-    head(30) %>%
+    head(num) %>%
     mutate(word = fct_reorder(word, tf_idf)) %>%
     ggplot(aes(word, tf_idf)) +
     geom_col(aes(fill = tf_idf), color = "black") +
     coord_flip() +
-    scale_fill_distiller(direction = 1, palette = "RdYlBu") +
+    scale_fill_distiller(direction = 1, palette = "RdPu") +
     labs(
       title = paste("Words more specific in", partyInput, "'s manifesto"),
-      subtitle = "Words weighted by tf-idf",
+      subtitle = paste("Top",num,"Words weighted by tf-idf"),
       caption = "Sources: https://www.bjp.org/en/manifesto2019\nhttps://manifesto.inc.in/pdf/english.pdf"
     )
 }
@@ -120,7 +119,6 @@ congressBG <- congressRaw %>%
 dfBG <- rbind(bjpBG, congressBG)
 
 dfBGProcessed <- dfBG %>%
-  filter(!str_detect(word, "ÿ")) %>%
   separate(word, into = c("word1", "word2"), sep = " ") %>%
   filter(
     !word1 %in% stop_words$word &
@@ -131,6 +129,9 @@ dfBGProcessed <- dfBG %>%
          !word2 %in% filterWords) %>%
   filter(str_detect(word1,"[a-zA-Z]") &
          str_detect(word2,"[a-zA-Z]")) %>% 
+  mutate(word1 = ifelse(word1=="sta", "start", word1),
+         word2 = ifelse(word2=="suppo", "support", word2),
+         word1 = ifelse(word1=="nancial", "financial", word1)) %>% 
   count(word1, word2, party, sort = TRUE)
 
 
@@ -235,7 +236,7 @@ freqPlot <- function() {
       height = 0.25
     ) +
     geom_text(aes(label = word),
-              size = 4,
+              size = 4.5,
               check_overlap = TRUE,
               vjust = 1.5) +
     scale_x_log10(labels = percent_format()) +
