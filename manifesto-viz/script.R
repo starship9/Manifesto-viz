@@ -2,8 +2,8 @@ library(pdftools)
 library(tidyverse)
 library(tidytext)
 
-bjpRaw <- pdf_text("../data/bjp.pdf")
-congressRaw <- pdf_text("../data/congress.pdf")
+bjpRaw <- pdf_text("bjp.pdf")
+congressRaw <- pdf_text("congress.pdf")
 
 filterWords <-
   c(

@@ -1,18 +1,9 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    http://shiny.rstudio.com/
-#
-
 library(shiny)
 library(shinydashboard)
 library(shinythemes)
 library(dashboardthemes)
 
-source("../R/script.R")
+source("script.R")
 
 ui <- dashboardPage(
   dashboardHeader(title = "Manifesto-viz"),
@@ -123,14 +114,11 @@ ui <- dashboardPage(
                   plotOutput("topicWords", width = 1000)
                 )
               ))
-    ))
+    )
+  )
 )
 
 server <- function(input, output) {
-  output$selected_var <- renderText({
-    paste("You have chosen", input$selectParty)
-  })
-  
   output$freqPlot <- renderPlot({
     freqPlot()
   })
@@ -144,7 +132,8 @@ server <- function(input, output) {
   })
   
   tfidfInput <- reactive({
-    tfidfWords(stringr::str_to_lower(input$selectParty), input$numInputTFIDF)
+    tfidfWords(stringr::str_to_lower(input$selectParty),
+               input$numInputTFIDF)
   })
   
   output$tfidfPlot <- renderPlot({
